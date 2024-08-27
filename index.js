@@ -107,10 +107,17 @@ async generateSnarkProof(message) {
     console.log('Debug - Scalar (Hex):', b4a.toString(scalar, 'hex'));
 
     // Normalize the scalar by reducing it modulo the curve order
-    const curveOrder = new BN('21888242871839275222246405745257275088548364400416034343698204186575808495617', 10); // BN128 curve order
-    scalar = new BN(`0x${b4a.toString(scalar, 'hex')}`, 16).mod(curveOrder).toArrayLike(Buffer, 'be', 32);
+    const hexScalar = b4a.toString(scalar, 'hex');
+    console.log('Hex Scalar for BN.js:', hexScalar);
 
-    console.log('Normalized Scalar (Hex):', scalar.toString('hex'));
+    try {
+        const curveOrder = new BN('21888242871839275222246405745257275088548364400416034343698204186575808495617', 10); // BN128 curve order
+        scalar = new BN(`0x${hexScalar}`, 16).mod(curveOrder).toArrayLike(Buffer, 'be', 32);
+        console.log('Normalized Scalar (Hex):', scalar.toString('hex'));
+    } catch (error) {
+        console.error('Error during scalar normalization:', error);
+        throw error;
+    }
 
     const input = {
       privKey: scalar.toString('hex'),
@@ -132,6 +139,7 @@ async generateSnarkProof(message) {
         throw error;
     }
 }
+
 
 
 
