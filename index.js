@@ -98,7 +98,8 @@ class Keychain {
 
   // Method to generate a zk-SNARK proof
   async generateSnarkProof (message) {
-    const { publicKey, scalar } = this.getProofComponents()
+    const signer = createSigner(this.head)
+    const { publicKey, scalar } = signer.getProofComponents()
 
     // Load the circuit compiled files
     const wasmFile = './circuit.wasm'
