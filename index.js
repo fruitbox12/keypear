@@ -113,9 +113,9 @@ async generateSnarkProof(message) {
     console.log('Normalized Scalar (Hex):', scalar.toString('hex'));
 
     const input = {
-        privKey: `0x${scalar.toString('hex')}`,
-        pubKey: `0x${b4a.toString(publicKey, 'hex')}`,
-        messageHash: `0x${b4a.toString(message, 'hex')}`
+      privKey: b4a.toString(scalar, 'hex'),
+      pubKey: b4a.toString(publicKey, 'hex'),
+      messageHash: b4a.toString(message, 'hex')
     }
 
     console.log('Input Scalar:', input.privKey);
