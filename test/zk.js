@@ -3,10 +3,17 @@ const b4a = require('b4a')
 const sodium = require('sodium-native')
 const Keychain = require('../')
 
-// Function to perform scalar multiplication (manual implementation)
+// Function to perform scalar multiplication (using crypto_scalarmult_ed25519)
 function scalarMul(a, b) {
   const result = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
-  sodium.crypto_core_ed25519_scalar_reduce(result, b4a.from(a.map((byte, i) => (byte * b[i]) % 256)))
+
+  // Multiply scalars using crypto_core_ed25519_scalar_add for modular multiplication
+  for (let i = 0; i < a.length; i++) {
+    result[i] = a[i] * b[i]
+  }
+
+  // Reduce result to the curve order
+  sodium.crypto_core_ed25519_scalar_reduce(result, result)
   return result
 }
 
