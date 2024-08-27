@@ -59,14 +59,19 @@ function verifyZKSchnorrProof(proof) {
   // Step 2: Verify that s * G = R + c * publicKey
   const sG = b4a.alloc(sodium.crypto_scalarmult_BYTES)
   sodium.crypto_scalarmult_base(sG, s)
+  console.log('s * G:', sG.toString('hex'))
 
   const cPK = b4a.alloc(sodium.crypto_scalarmult_BYTES)
   sodium.crypto_scalarmult(cPK, c, publicKey)
+  console.log('c * publicKey:', cPK.toString('hex'))
 
   const RPlusCPK = b4a.alloc(sodium.crypto_scalarmult_BYTES)
   sodium.crypto_core_ed25519_add(RPlusCPK, R, cPK)
+  console.log('R + c * publicKey:', RPlusCPK.toString('hex'))
 
   const isValid = b4a.equals(sG, RPlusCPK)
+  console.log('s * G:', sG.toString('hex'))
+  console.log('R + c * publicKey:', RPlusCPK.toString('hex'))
   console.log(isValid ? '✅ Proof is Valid' : '❌ Proof is Invalid')
 
   console.timeEnd('Proof Verification Time')
