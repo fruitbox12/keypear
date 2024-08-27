@@ -24,7 +24,7 @@ class Keychain {
     if (!name) return createSigner(this.head)
 
     const keyPair = allocKeyPair(!!this.head.scalar)
-    add(this.head, this._getT tweak(name), keyPair)
+    add(this.head, this._getTweak(name), keyPair)
 
     return createSigner(keyPair)
   }
@@ -79,7 +79,7 @@ class Keychain {
   static keyPair(seed) {
     const publicKey = b4a.alloc(sodium.crypto_sign_PUBLICKEYBYTES)
     const secretKey = b4a.alloc(sodium.crypto_sign_SECRETKEYBYTES)
-    const scalar = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
+    const scalar = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
 
     if (seed) {
       sodium.crypto_sign_seed_keypair(publicKey, secretKey, seed)
@@ -87,12 +87,16 @@ class Keychain {
       sodium.crypto_sign_keypair(publicKey, secretKey)
     }
 
-    // Convert the first 32 bytes of secretKey to a scalar
-    sodium.crypto_core_ed25519_scalar_reduce(scalar, secretKey.subarray(0, 64))
+    // Create a 64-byte buffer for reduction
+    const longScalar = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
+    longScalar.set(secretKey.subarray(0, 32))
+
+    // Reduce the long scalar to the appropriate size
+    sodium.crypto_core_ed25519_scalar_reduce(scalar, longScalar)
 
     return {
       publicKey,
-      scalar: scalar.subarray(0, sodium.crypto_core_ed25519_SCALARBYTES) // Reduce to scalar size
+      scalar
     }
   }
 }
@@ -124,7 +128,10 @@ function toScalarKeyPair(keyPair) {
   if (!keyPair.scalar) return keyPair
 
   const scalar = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
-  sodium.crypto_core_ed25519_scalar_reduce(scalar, keyPair.scalar)
+  const longScalar = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
+  longScalar.set(keyPair.scalar)
+
+  sodium.crypto_core_ed25519_scalar_reduce(scalar, longScalar)
   return { publicKey: keyPair.publicKey, scalar }
 }
 
@@ -132,7 +139,9 @@ function tweakKeyPair(name, prev) {
   const keyPair = allocKeyPair(true)
   const seed = b4a.allocUnsafe(32)
   sodium.crypto_generichash_batch(seed, [prev, name])
-  sodium.crypto_core_ed25519_scalar_reduce(keyPair.scalar, seed)
+  const longScalar = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
+  longScalar.set(seed)
+  sodium.crypto_core_ed25519_scalar_reduce(keyPair.scalar, longScalar)
   sodium.crypto_scalarmult_ed25519_base_noclamp(keyPair.publicKey, keyPair.scalar)
   return keyPair
 }
