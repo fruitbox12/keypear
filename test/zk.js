@@ -28,19 +28,31 @@ function generateZKSchnorrProof(scalar, publicKey) {
   }
 
   // Step 3: Compute challenge c = H(R || publicKey)
-  const cHash = b4a.alloc(sodium.crypto_generichash_BYTES)
+  console.log('🔍 Preparing to compute challenge c')
+  console.log('🧩 Concatenating R and publicKey')
   const hashInput = b4a.concat([R, publicKey])
+  console.log('📦 Hash input:', hashInput.toString('hex'))
+
+  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
+  console.log('🛠️  Allocated cHash buffer of size:', cHash.length)
+
   sodium.crypto_generichash(cHash, hashInput)
-  
+  console.log('🔑 Generated cHash:', cHash.toString('hex'))
+
   const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  console.log('🔨 Reducing cHash to a scalar')
   sodium.crypto_core_ed25519_scalar_reduce(c, cHash)
   console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
   // Step 4: Compute s = (r + c * scalar) mod L, where L is the curve order
+  console.log('🔧 Preparing to compute s = (r + c * scalar)')
   const cs = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  console.log('🔗 Multiplying c and scalar')
   sodium.crypto_core_ed25519_scalar_mul(cs, c, scalar)
-  
+  console.log('🔗 Result of c * scalar (cs):', cs.toString('hex'))
+
   const s = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  console.log('➕ Adding r and cs')
   sodium.crypto_core_ed25519_scalar_add(s, r, cs)
   console.log('🔐 Computed Response (s = r + c * scalar):', s.toString('hex'))
 
@@ -59,25 +71,33 @@ function verifyZKSchnorrProof(proof) {
   const { R, s, publicKey } = proof
 
   console.log('🔍 Verifying proof with values:')
-  console.log('R:', R.toString('hex'))
-  console.log('s:', s.toString('hex'))
-  console.log('publicKey:', publicKey.toString('hex'))
+  console.log('🟦 R:', R.toString('hex'))
+  console.log('🟩 s:', s.toString('hex'))
+  console.log('🟧 publicKey:', publicKey.toString('hex'))
 
   // Step 1: Recompute the challenge c = H(R || publicKey)
-  const cHash = b4a.alloc(sodium.crypto_generichash_BYTES)
+  console.log('🔍 Recomputing challenge c')
+  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
   const hashInput = b4a.concat([R, publicKey])
+  console.log('📦 Hash input:', hashInput.toString('hex'))
+
   sodium.crypto_generichash(cHash, hashInput)
-  
+  console.log('🔑 Recomputed cHash:', cHash.toString('hex'))
+
   const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  console.log('🔨 Reducing cHash to a scalar')
   sodium.crypto_core_ed25519_scalar_reduce(c, cHash)
   console.log('🔄 Recomputed Challenge (c = H(R || publicKey)): ', c.toString('hex'))
 
   // Step 2: Verify that s * G = R + c * publicKey
+  console.log('🔧 Verifying s * G = R + c * publicKey')
   const sG = b4a.alloc(sodium.crypto_core_ed25519_BYTES)
+  console.log('📐 Computing s * G')
   sodium.crypto_scalarmult_ed25519_base_noclamp(sG, s)
   console.log('s * G:', sG.toString('hex'))
 
   const cPK = b4a.alloc(sodium.crypto_core_ed25519_BYTES)
+  console.log('📐 Computing c * publicKey')
   sodium.crypto_scalarmult_ed25519_noclamp(cPK, c, publicKey)
   console.log('c * publicKey:', cPK.toString('hex'))
 
@@ -98,18 +118,19 @@ function verifyZKSchnorrProof(proof) {
 
   try {
     const RPlusCPK = b4a.alloc(sodium.crypto_core_ed25519_BYTES)
+    console.log('➕ Adding R and c * publicKey')
     sodium.crypto_core_ed25519_add(RPlusCPK, R, cPK)
     console.log('R + c * publicKey:', RPlusCPK.toString('hex'))
 
-    // Check that s * G matches R + c * publicKey
+    console.log('🔍 Comparing s * G and R + c * publicKey')
     const isValid = b4a.equals(sG, RPlusCPK)
     console.log(isValid ? '✅ Proof is Valid' : '❌ Proof is Invalid')
 
     return isValid
   } catch (error) {
-    console.error('Error during point addition:', error.message)
-    console.error('R:', R.toString('hex'))
-    console.error('c * publicKey:', cPK.toString('hex'))
+    console.error('❗ Error during point addition:', error.message)
+    console.error('🟥 R:', R.toString('hex'))
+    console.error('🟨 c * publicKey:', cPK.toString('hex'))
     throw error
   } finally {
     console.timeEnd('Proof Verification Time')
