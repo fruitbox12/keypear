@@ -103,6 +103,8 @@ class Keychain {
 async generateSnarkProof(message) {
     const signer = createSigner(this.head)
     let { publicKey, scalar } = signer.getProofComponents()
+    console.log('Debug - Scalar length:', scalar.length)
+    console.log('Debug - Scalar (Hex):', b4a.toString(scalar, 'hex'))
 
     // Normalize the scalar by reducing it modulo the curve order
     const curveOrder = new BN('21888242871839275222246405745257275088548364400416034343698204186575808495617', 10); // BN128 curve order
