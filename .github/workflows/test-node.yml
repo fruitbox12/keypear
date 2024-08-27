@@ -3,9 +3,11 @@ on:
   push:
     branches:
       - master
+      - snarkjs
   pull_request:
     branches:
       - master
+      - snarkjs 
 jobs:
   build:
     strategy:
