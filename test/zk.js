@@ -31,7 +31,9 @@ function generateZKSchnorrProof(scalar, publicKey) {
   const cHash = b4a.alloc(sodium.crypto_generichash_BYTES)
   const hashInput = b4a.concat([R, publicKey])
   sodium.crypto_generichash(cHash, hashInput)
-  const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  
+  // Allocate the correct size for c using the NONREDUCEDSCALARBYTES length
+  const c = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
   sodium.crypto_core_ed25519_scalar_reduce(c, cHash)
   console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
@@ -65,7 +67,9 @@ function verifyZKSchnorrProof(proof) {
   const cHash = b4a.alloc(sodium.crypto_generichash_BYTES)
   const hashInput = b4a.concat([R, publicKey])
   sodium.crypto_generichash(cHash, hashInput)
-  const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  
+  // Allocate the correct size for c using the NONREDUCEDSCALARBYTES length
+  const c = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
   sodium.crypto_core_ed25519_scalar_reduce(c, cHash)
   console.log('🔄 Recomputed Challenge (c = H(R || publicKey)): ', c.toString('hex'))
 
