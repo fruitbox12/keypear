@@ -65,19 +65,37 @@ function verifyZKSchnorrProof(proof) {
   sodium.crypto_scalarmult(cPK, c, publicKey)
   console.log('c * publicKey:', cPK.toString('hex'))
 
-  const RPlusCPK = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-  sodium.crypto_core_ed25519_add(RPlusCPK, R, cPK)
-  console.log('R + c * publicKey:', RPlusCPK.toString('hex'))
+  // Revalidate points
+  if (!sodium.crypto_core_ed25519_is_valid_point(R)) {
+    console.error('R is not a valid Ed25519 point:', R.toString('hex'))
+  } else {
+    console.log('R is a valid Ed25519 point.')
+  }
 
-  const isValid = b4a.equals(sG, RPlusCPK)
-  console.log('s * G:', sG.toString('hex'))
-  console.log('R + c * publicKey:', RPlusCPK.toString('hex'))
-  console.log(isValid ? '✅ Proof is Valid' : '❌ Proof is Invalid')
+  if (!sodium.crypto_core_ed25519_is_valid_point(cPK)) {
+    console.error('c * publicKey is not a valid Ed25519 point:', cPK.toString('hex'))
+  } else {
+    console.log('c * publicKey is a valid Ed25519 point.')
+  }
 
-  console.timeEnd('Proof Verification Time')
-  console.log('\n===== ZK Schnorr Proof Verification Completed =====\n')
+  try {
+    const RPlusCPK = b4a.alloc(sodium.crypto_scalarmult_BYTES)
+    sodium.crypto_core_ed25519_add(RPlusCPK, R, cPK)
+    console.log('R + c * publicKey:', RPlusCPK.toString('hex'))
 
-  return isValid
+    const isValid = b4a.equals(sG, RPlusCPK)
+    console.log(isValid ? '✅ Proof is Valid' : '❌ Proof is Invalid')
+
+    return isValid
+  } catch (error) {
+    console.error('Error during point addition:', error.message)
+    console.error('R:', R.toString('hex'))
+    console.error('c * publicKey:', cPK.toString('hex'))
+    throw error
+  } finally {
+    console.timeEnd('Proof Verification Time')
+    console.log('\n===== ZK Schnorr Proof Verification Completed =====\n')
+  }
 }
 
 test('ZK Schnorr proof generation and verification', function (t) {
