@@ -104,25 +104,25 @@ async generateSnarkProof(message) {
     const signer = createSigner(this.head);
     let { publicKey, scalar } = signer.getProofComponents();
     console.log('Debug - Scalar length:', scalar.length);
-    console.log('Debug - Scalar (Hex):', b4a.toString(scalar, 'hex'));
+    console.log('Debug - Scalar (Hex):', Buffer.from(scalar).toString('hex'));
 
-    // Normalize the scalar by reducing it modulo the curve order
-    const hexScalar = b4a.toString(scalar, 'hex');
+    // Use Buffer to handle hex conversion explicitly
+    const hexScalar = Buffer.from(scalar).toString('hex');
     console.log('Hex Scalar for BN.js:', hexScalar);
 
     try {
         const curveOrder = new BN('21888242871839275222246405745257275088548364400416034343698204186575808495617', 10); // BN128 curve order
-        scalar = new BN(`0x${hexScalar}`, 16).mod(curveOrder).toArrayLike(Buffer, 'be', 32);
-        console.log('Normalized Scalar (Hex):', scalar.toString('hex'));
+        scalar = new BN(hexScalar, 16).mod(curveOrder).toArrayLike(Buffer, 'be', 32);
+        console.log('Normalized Scalar (Hex):', Buffer.from(scalar).toString('hex'));
     } catch (error) {
         console.error('Error during scalar normalization:', error);
         throw error;
     }
 
     const input = {
-      privKey: scalar.toString('hex'),
-      pubKey: b4a.toString(publicKey, 'hex'),
-      messageHash: b4a.toString(message, 'hex')
+        privKey: Buffer.from(scalar).toString('hex'),
+        pubKey: Buffer.from(publicKey).toString('hex'),
+        messageHash: Buffer.from(message).toString('hex')
     };
 
     console.log('Input Scalar:', input.privKey);
@@ -139,6 +139,7 @@ async generateSnarkProof(message) {
         throw error;
     }
 }
+
 
 
 
