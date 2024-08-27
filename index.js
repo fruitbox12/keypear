@@ -102,7 +102,7 @@ class Keychain {
 async generateSnarkProof(message) {
     const signer = createSigner(this.head);
     let { publicKey, scalar } = signer.getProofComponents();
-    
+
     console.log('Debug - Scalar length:', scalar.length);
     console.log('Debug - Scalar (Hex):', Buffer.from(scalar).toString('hex'));
 
@@ -110,11 +110,11 @@ async generateSnarkProof(message) {
     const scalarBigInt = BigInt(`0x${Buffer.from(scalar).toString('hex')}`);
     console.log('Scalar as BigInt:', scalarBigInt);
 
-    // Ensure publicKey is correctly passed as a hexadecimal string
+    // Ensure publicKey is passed correctly as a hex string
     const input = {
         privKey: scalarBigInt.toString(), // Scalar as a string
-        pubKey: Buffer.from(publicKey).toString('hex'), // Public key as a hex string
-        messageHash: Buffer.from(message).toString('hex') // Message as hex string
+        pubKey: `0x${Buffer.from(publicKey).toString('hex')}`, // Public key as a hex string
+        messageHash: `0x${Buffer.from(message).toString('hex')}` // Message as hex string
     };
 
     console.log('Input Scalar:', input.privKey);
@@ -131,6 +131,7 @@ async generateSnarkProof(message) {
         throw error;
     }
 }
+
 
 
 
