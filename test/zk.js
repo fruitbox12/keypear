@@ -3,42 +3,37 @@ const b4a = require('b4a')
 const sodium = require('sodium-native')
 const Keychain = require('../')
 
-function generateValidR() {
-  let r, R
-  do {
-    r = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
-    sodium.randombytes_buf(r)
-    console.log('🎲 Generated Random Nonce (r):', r.toString('hex'))
-    
-    R = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-    sodium.crypto_scalarmult_base(R, r)
-    console.log('📍 Computed R (R = r * G):', R.toString('hex'))
-    
-    if (!sodium.crypto_core_ed25519_is_valid_point(R)) {
-      console.error('Generated R is not a valid Ed25519 point, retrying...')
-    }
-  } while (!sodium.crypto_core_ed25519_is_valid_point(R))
-
-  return { r, R }
-}
-
 // Function to generate a ZK proof using the Schnorr protocol
 function generateZKSchnorrProof(scalar, publicKey) {
   console.log('\n===== Starting ZK Schnorr Proof Generation =====\n')
+
   console.time('Proof Generation Time')
 
-  // Step 1: Generate a valid random nonce (r) and corresponding R
-  const { r, R } = generateValidR()
+  // Step 1: Generate a random nonce (r)
+  const r = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
+  sodium.randombytes_buf(r)
+  console.log('🎲 Generated Random Nonce (r):', r.toString('hex'))
 
-  // Step 2: Compute challenge c = H(R || publicKey)
-  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
+  // Step 2: Compute R = r * G (where G is the base point, in this case, the Ed25519 base point)
+  const R = b4a.alloc(sodium.crypto_scalarmult_BYTES)
+  sodium.crypto_scalarmult_base(R, r)
+  console.log('📍 Computed R (R = r * G):', R.toString('hex'))
+
+  // Validate that R is a valid Ed25519 point
+  if (!sodium.crypto_core_ed25519_is_valid_point(R)) {
+    console.error('Generated R is not a valid Ed25519 point:', R.toString('hex'))
+    throw new Error('Invalid point R')
+  }
+
+  // Step 3: Compute challenge c = H(R || publicKey)
+  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES) // Allocate correct size
   const hashInput = b4a.concat([R, publicKey])
-  sodium.crypto_generichash(cHash, hashInput)
+  sodium.crypto_generichash(cHash, hashInput) // Hash to fill cHash
   const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
-  sodium.crypto_core_ed25519_scalar_reduce(c, cHash)
+  sodium.crypto_core_ed25519_scalar_reduce(c, cHash) // Reduce to scalar
   console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
-  // Step 3: Compute s = (r + c * scalar) mod L, where L is the curve order
+  // Step 4: Compute s = (r + c * scalar) mod L, where L is the curve order
   const cs = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
   sodium.crypto_scalarmult(cs, c, publicKey)
   const s = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
@@ -80,15 +75,11 @@ function verifyZKSchnorrProof(proof) {
   if (!sodium.crypto_core_ed25519_is_valid_point(R)) {
     console.error('R is not a valid Ed25519 point:', R.toString('hex'))
     throw new Error('Invalid point R')
-  } else {
-    console.log('R is a valid Ed25519 point.')
   }
 
   if (!sodium.crypto_core_ed25519_is_valid_point(cPK)) {
     console.error('c * publicKey is not a valid Ed25519 point:', cPK.toString('hex'))
     throw new Error('Invalid point c * publicKey')
-  } else {
-    console.log('c * publicKey is a valid Ed25519 point.')
   }
 
   try {
