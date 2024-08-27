@@ -3,20 +3,6 @@ const b4a = require('b4a')
 const sodium = require('sodium-native')
 const Keychain = require('../')
 
-// Function to perform scalar addition modulo the curve's order
-function scalarAddModL(a, b) {
-  const result = b4a.alloc(32)
-  sodium.crypto_core_ed25519_scalar_add(result, a, b)
-  return result
-}
-
-// Function to perform scalar multiplication
-function scalarMulModL(scalar, point) {
-  const result = b4a.alloc(32)
-  sodium.crypto_scalarmult_ed25519_noclamp(result, scalar, point)
-  return result
-}
-
 // Function to generate a real ZK proof using the Schnorr protocol
 function generateZKSchnorrProof(scalar, publicKey) {
   console.log('\n===== Starting ZK Schnorr Proof Generation =====\n')
@@ -24,12 +10,12 @@ function generateZKSchnorrProof(scalar, publicKey) {
   console.time('Proof Generation Time')
 
   // Step 1: Generate a random nonce (r)
-  const r = b4a.alloc(32)
-  sodium.randombytes_buf(r)
+  const r = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  sodium.crypto_core_ed25519_scalar_random(r)
   console.log('🎲 Generated Random Nonce (r):', r.toString('hex'))
 
   // Step 2: Compute R = r * G (where G is the base point, in this case, the Ed25519 base point)
-  const R = b4a.alloc(32)
+  const R = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
   sodium.crypto_scalarmult_ed25519_base_noclamp(R, r)
   console.log('📍 Computed R (R = r * G):', R.toString('hex'))
 
@@ -39,11 +25,17 @@ function generateZKSchnorrProof(scalar, publicKey) {
   sodium.crypto_generichash(c, hashInput)
   console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
-  // Step 4: Compute c * scalar manually
-  const cScalar = scalarMulModL(c, scalar)
+  // Step 4: Reduce the challenge c mod L to ensure it's a valid scalar
+  const cReduced = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  sodium.crypto_core_ed25519_scalar_reduce(cReduced, c)
 
-  // Step 5: Compute s = r + cScalar mod L
-  const s = scalarAddModL(r, cScalar)
+  // Step 5: Compute c * scalar mod L
+  const cScalar = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  sodium.crypto_core_ed25519_scalar_mul(cScalar, cReduced, scalar)
+
+  // Step 6: Compute s = r + c * scalar mod L
+  const s = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  sodium.crypto_core_ed25519_scalar_add(s, r, cScalar)
   console.log('🔐 Computed Response (s = r + c * scalar):', s.toString('hex'))
 
   console.timeEnd('Proof Generation Time')
@@ -66,12 +58,23 @@ function verifyZKSchnorrProof(proof) {
   sodium.crypto_generichash(c, hashInput)
   console.log('🔄 Recomputed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
-  // Step 2: Verify that s * G = R + c * publicKey
-  const sG = b4a.alloc(32)
-  const cPK = scalarMulModL(c, publicKey)
-  const RPlusCPK = scalarAddModL(R, cPK)
+  // Step 2: Reduce the challenge c mod L
+  const cReduced = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  sodium.crypto_core_ed25519_scalar_reduce(cReduced, c)
 
+  // Step 3: Verify that s * G = R + c * publicKey
+  const sG = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
+  const cPK = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
+  const RPlusCPK = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
+
+  // s * G
   sodium.crypto_scalarmult_ed25519_base_noclamp(sG, s)
+
+  // c * publicKey
+  sodium.crypto_scalarmult_ed25519_noclamp(cPK, cReduced, publicKey)
+
+  // R + c * publicKey
+  sodium.crypto_core_ed25519_add(RPlusCPK, R, cPK)
 
   const isValid = b4a.equals(sG, RPlusCPK)
   console.log(isValid ? '✅ Proof is Valid' : '❌ Proof is Invalid')
