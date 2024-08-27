@@ -99,34 +99,40 @@ class Keychain {
   }
 
   // Method to generate a zk-SNARK proof
-  async generateSnarkProof (message) {
+// Method to generate a zk-SNARK proof
+async generateSnarkProof (message) {
     const signer = createSigner(this.head)
     const { publicKey, scalar } = signer.getProofComponents()
-  
-    // Check scalar size and content
+
+    // Ensure the scalar is exactly 32 bytes
     if (scalar.length !== 32) {
-      throw new Error(`Unexpected scalar size: ${scalar.length} bytes. Expected 32 bytes.`);
+        console.error(`Scalar length before proof generation: ${scalar.length} bytes`);
+        throw new Error(`Unexpected scalar size: ${scalar.length} bytes. Expected 32 bytes.`);
     }
-  
+    
     // Convert to hex and prepend '0x' to ensure proper BigInt conversion
     const input = {
-      privKey: `0x${b4a.toString(scalar, 'hex')}`,
-      pubKey: `0x${b4a.toString(publicKey, 'hex')}`,
-      messageHash: `0x${b4a.toString(message, 'hex')}`
+        privKey: `0x${b4a.toString(scalar, 'hex')}`,
+        pubKey: `0x${b4a.toString(publicKey, 'hex')}`,
+        messageHash: `0x${b4a.toString(message, 'hex')}`
     }
   
     console.log('Input Scalar:', input.privKey);
     console.log('Input Public Key:', input.pubKey);
-  
+    
     // Load the circuit compiled files
     const wasmFile = './keyownership.wasm'
     const zkeyFile = './keyownership_final.zkey'
-  
-    // Generate the proof
-    const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasmFile, zkeyFile)
-  
-    return { proof, publicSignals }
-  }
+    
+    try {
+        // Generate the proof
+        const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasmFile, zkeyFile)
+        return { proof, publicSignals }
+    } catch (error) {
+        console.error('Error during proof generation:', error);
+        throw error;
+    }
+}
 
   // Method to verify a zk-SNARK proof
   static async verifySnarkProof (proof, publicSignals) {
