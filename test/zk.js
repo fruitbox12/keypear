@@ -20,7 +20,7 @@ function generateZKSchnorrProof(scalar, publicKey) {
   console.log('📍 Computed R (R = r * G):', R.toString('hex'))
 
   // Step 3: Compute challenge c = H(R || publicKey)
-  const c = b4a.alloc(32)
+  const c = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
   const hashInput = b4a.concat([R, publicKey])
   sodium.crypto_generichash(c, hashInput)
   console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
@@ -53,7 +53,7 @@ function verifyZKSchnorrProof(proof) {
   const { R, s, publicKey } = proof
 
   // Step 1: Recompute the challenge c = H(R || publicKey)
-  const c = b4a.alloc(32)
+  const c = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
   const hashInput = b4a.concat([R, publicKey])
   sodium.crypto_generichash(c, hashInput)
   console.log('🔄 Recomputed Challenge (c = H(R || publicKey)):', c.toString('hex'))
