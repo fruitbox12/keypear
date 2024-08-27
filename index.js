@@ -103,6 +103,7 @@ class Keychain {
 async generateSnarkProof(message) {
     const signer = createSigner(this.head);
     let { publicKey, scalar } = signer.getProofComponents();
+    
     console.log('Debug - Scalar length:', scalar.length);
     console.log('Debug - Scalar (Hex):', Buffer.from(scalar).toString('hex'));
 
@@ -110,17 +111,13 @@ async generateSnarkProof(message) {
     const hexScalar = Buffer.from(scalar).toString('hex');
     console.log('Hex Scalar for BN.js:', hexScalar);
 
-    try {
-        const curveOrder = new BN('21888242871839275222246405745257275088548364400416034343698204186575808495617', 10); // BN128 curve order
-        scalar = new BN(hexScalar, 16).mod(curveOrder).toArrayLike(Buffer, 'be', 32);
-        console.log('Normalized Scalar (Hex):', Buffer.from(scalar).toString('hex'));
-    } catch (error) {
-        console.error('Error during scalar normalization:', error);
-        throw error;
-    }
+    // Convert scalar to a BigInt directly, if supported, or ensure it's in the correct format
+    const scalarBigInt = BigInt(`0x${hexScalar}`);
+    
+    console.log('Scalar as BigInt:', scalarBigInt);
 
     const input = {
-        privKey: Buffer.from(scalar).toString('hex'),
+        privKey: scalarBigInt.toString(), // Convert BigInt back to string or use as needed
         pubKey: Buffer.from(publicKey).toString('hex'),
         messageHash: Buffer.from(message).toString('hex')
     };
@@ -139,6 +136,7 @@ async generateSnarkProof(message) {
         throw error;
     }
 }
+
 
 
 
