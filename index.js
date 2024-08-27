@@ -3,7 +3,7 @@ const sodium = require('sodium-native')
 const b4a = require('b4a')
 const snarkjs = require('snarkjs')
 const fs = require('fs')
-const BN = require('bn.js'); // Using BN.js to ensure proper scalar handling
+const { Scalar, F1Field } = require('ffjavascript'); // Import ffjavascript utilities
 
 class Keychain {
   constructor (home = Keychain.keyPair(), base = null, tweak = null) {
@@ -101,6 +101,7 @@ class Keychain {
   // Method to generate a zk-SNARK proof
 
 
+
 async generateSnarkProof(message) {
     const signer = createSigner(this.head);
     let { publicKey, scalar } = signer.getProofComponents();
@@ -108,17 +109,17 @@ async generateSnarkProof(message) {
     console.log('Debug - Scalar length:', scalar.length);
     console.log('Debug - Scalar (Hex):', Buffer.from(scalar).toString('hex'));
 
-    // Convert scalar to BigInt and ensure it is within the curve's field size
-    const scalarBigInt = new BN(Buffer.from(scalar).toString('hex'), 16);
-    const curveOrder = new BN('21888242871839275222246405745257275088548364400416034343698204186575808495617', 10); // BN128 curve order
-    const reducedScalar = scalarBigInt.mod(curveOrder);
-    console.log('Reduced Scalar (Hex):', reducedScalar.toString(16));
+    // Convert scalar to BigInt using Scalar utility
+    const scalarBigInt = Scalar.fromString(Buffer.from(scalar).toString('hex'), 16);
+    console.log('Scalar as BigInt:', scalarBigInt);
 
-    // Convert the reduced scalar back to a buffer
-    const reducedScalarBuffer = reducedScalar.toArrayLike(Buffer, 'be', 32);
+    // Reduce scalar to fit within the curve's order
+    const curveOrder = new F1Field('21888242871839275222246405745257275088548364400416034343698204186575808495617');
+    const reducedScalar = curveOrder.e(scalarBigInt);
+    console.log('Reduced Scalar (Hex):', Scalar.toString(reducedScalar, 16));
 
     const input = {
-        privKey: reducedScalarBuffer.toString('hex'), // Scalar as hex string
+        privKey: Scalar.toString(reducedScalar, 16), // Properly formatted scalar
         pubKey: Buffer.from(publicKey).toString('hex'), // Public key as hex string
         messageHash: Buffer.from(message).toString('hex') // Message as hex string
     };
@@ -137,6 +138,7 @@ async generateSnarkProof(message) {
         throw error;
     }
 }
+
 
 
 
