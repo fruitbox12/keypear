@@ -101,37 +101,38 @@ class Keychain {
   // Method to generate a zk-SNARK proof
 
 async generateSnarkProof(message) {
-    const signer = createSigner(this.head)
-    let { publicKey, scalar } = signer.getProofComponents()
-    console.log('Debug - Scalar length:', scalar.length)
-    console.log('Debug - Scalar (Hex):', b4a.toString(scalar, 'hex'))
+    const signer = createSigner(this.head);
+    let { publicKey, scalar } = signer.getProofComponents();
+    console.log('Debug - Scalar length:', scalar.length);
+    console.log('Debug - Scalar (Hex):', b4a.toString(scalar, 'hex'));
 
     // Normalize the scalar by reducing it modulo the curve order
     const curveOrder = new BN('21888242871839275222246405745257275088548364400416034343698204186575808495617', 10); // BN128 curve order
-    scalar = new BN(scalar, 16).mod(curveOrder).toArrayLike(Buffer, 'be', 32);
+    scalar = new BN(`0x${b4a.toString(scalar, 'hex')}`, 16).mod(curveOrder).toArrayLike(Buffer, 'be', 32);
 
     console.log('Normalized Scalar (Hex):', scalar.toString('hex'));
 
     const input = {
-      privKey: b4a.toString(scalar, 'hex'),
+      privKey: scalar.toString('hex'),
       pubKey: b4a.toString(publicKey, 'hex'),
       messageHash: b4a.toString(message, 'hex')
-    }
+    };
 
     console.log('Input Scalar:', input.privKey);
     console.log('Input Public Key:', input.pubKey);
 
-    const wasmFile = './keyownership.wasm'
-    const zkeyFile = './keyownership_final.zkey'
+    const wasmFile = './keyownership.wasm';
+    const zkeyFile = './keyownership_final.zkey';
 
     try {
-        const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasmFile, zkeyFile)
-        return { proof, publicSignals }
+        const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasmFile, zkeyFile);
+        return { proof, publicSignals };
     } catch (error) {
         console.error('Error during proof generation:', error);
         throw error;
     }
 }
+
 
 
 
