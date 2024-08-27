@@ -1,126 +1,186 @@
-const test = require('brittle')
-const b4a = require('b4a')
+const storage = require('./storage')
 const sodium = require('sodium-native')
-const Keychain = require('../')
+const b4a = require('b4a')
 
-// Function to generate a ZK proof using the Schnorr protocol
-function generateZKSchnorrProof(scalar, publicKey) {
-  console.log('\n===== Starting ZK Schnorr Proof Generation =====\n')
-
-  console.time('Proof Generation Time')
-
-  // Step 1: Generate a random nonce (r)
-  const r = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
-  sodium.randombytes_buf(r)
-  console.log('🎲 Generated Random Nonce (r):', r.toString('hex'))
-
-  // Step 2: Compute R = r * G (where G is the base point, in this case, the Ed25519 base point)
-  const R = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-  sodium.crypto_scalarmult_base(R, r)
-  console.log('📍 Computed R (R = r * G):', R.toString('hex'))
-
-  // Validate that R is a valid Ed25519 point
-  if (!sodium.crypto_core_ed25519_is_valid_point(R)) {
-    console.error('Generated R is not a valid Ed25519 point:', R.toString('hex'))
-    throw new Error('Invalid point R')
+class Keychain {
+  constructor (home = Keychain.keyPair(), base = null, tweak = null) {
+    this.home = toScalarKeyPair(fromKeyPair(home))
+    this.base = base || this.home
+    this.tweak = tweak
+    this.head = tweak
+      ? add(tweak, this.base, allocKeyPair(!!this.base.scalar))
+      : this.base
   }
 
-  // Step 3: Compute challenge c = H(R || publicKey)
-  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES) // Allocate correct size
-  const hashInput = b4a.concat([R, publicKey])
-  sodium.crypto_generichash(cHash, hashInput) // Hash to fill cHash
-  const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
-  sodium.crypto_core_ed25519_scalar_reduce(c, cHash) // Reduce to scalar
-  console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
-
-  // Step 4: Compute s = (r + c * scalar) mod L, where L is the curve order
-  const cs = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
-  sodium.crypto_scalarmult(cs, c, publicKey)
-  const s = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
-  sodium.crypto_core_ed25519_scalar_add(s, r, cs)
-  console.log('🔐 Computed Response (s = r + c * scalar):', s.toString('hex'))
-
-  console.timeEnd('Proof Generation Time')
-  console.log('\n===== ZK Schnorr Proof Generation Completed =====\n')
-
-  return { R, s, publicKey }
-}
-
-// Function to verify the ZK proof using the Schnorr protocol
-function verifyZKSchnorrProof(proof) {
-  console.log('\n===== Starting ZK Schnorr Proof Verification =====\n')
-
-  console.time('Proof Verification Time')
-
-  const { R, s, publicKey } = proof
-
-  // Step 1: Recompute the challenge c = H(R || publicKey)
-  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
-  const hashInput = b4a.concat([R, publicKey])
-  sodium.crypto_generichash(cHash, hashInput)
-  const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
-  sodium.crypto_core_ed25519_scalar_reduce(c, cHash)
-  console.log('🔄 Recomputed Challenge (c = H(R || publicKey)):', c.toString('hex'))
-
-  // Step 2: Verify that s * G = R + c * publicKey
-  const sG = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-  sodium.crypto_scalarmult_base(sG, s)
-  console.log('s * G:', sG.toString('hex'))
-
-  const cPK = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-  sodium.crypto_scalarmult(cPK, c, publicKey)
-  console.log('c * publicKey:', cPK.toString('hex'))
-
-  // Revalidate points
-  if (!sodium.crypto_core_ed25519_is_valid_point(R)) {
-    console.error('R is not a valid Ed25519 point:', R.toString('hex'))
-    throw new Error('Invalid point R')
+  get isKeychain () {
+    return true
   }
 
-  if (!sodium.crypto_core_ed25519_is_valid_point(cPK)) {
-    console.error('c * publicKey is not a valid Ed25519 point:', cPK.toString('hex'))
-    throw new Error('Invalid point c * publicKey')
+  get publicKey () {
+    return this.head.publicKey
   }
 
-  try {
-    const RPlusCPK = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-    sodium.crypto_core_ed25519_add(RPlusCPK, R, cPK)
-    console.log('R + c * publicKey:', RPlusCPK.toString('hex'))
+  get (name) {
+    if (!name) return createSigner(this.head)
 
-    const isValid = b4a.equals(sG, RPlusCPK)
-    console.log(isValid ? '✅ Proof is Valid' : '❌ Proof is Invalid')
+    const keyPair = allocKeyPair(!!this.head.scalar)
 
-    return isValid
-  } catch (error) {
-    console.error('Error during point addition:', error.message)
-    console.error('R:', R.toString('hex'))
-    console.error('c * publicKey:', cPK.toString('hex'))
-    throw error
-  } finally {
-    console.timeEnd('Proof Verification Time')
-    console.log('\n===== ZK Schnorr Proof Verification Completed =====\n')
+    add(this.head, this._getTweak(name), keyPair)
+
+    return createSigner(keyPair)
+  }
+
+  sub (name) {
+    const tweak = this._getTweak(name)
+    if (this.tweak) add(tweak, this.tweak, tweak)
+
+    return new Keychain(this.home, this.base, tweak)
+  }
+
+  checkout (keyPair) {
+    return new Keychain(this.home, fromKeyPair(keyPair), null)
+  }
+
+  _getTweak (name) {
+    if (typeof name === 'string') name = b4a.from(name)
+    if (!b4a.isBuffer(name)) return name // keypair
+
+    return tweakKeyPair(toBuffer(name), this.head.publicKey)
+  }
+
+  static async open (filename) {
+    return new this(this.keyPair(await storage.open(filename)))
+  }
+
+  static openSync (filename) {
+    return new this(this.keyPair(storage.openSync(filename)))
+  }
+
+  static from (k) {
+    if (this.isKeychain(k)) { // future compat
+      return k instanceof this ? k : new this(k.home, k.base, k.tweak)
+    }
+    return new this(k)
+  }
+
+  static verify (signable, signature, publicKey) {
+    return sodium.crypto_sign_verify_detached(signature, signable, publicKey)
+  }
+
+  static isKeychain (k) {
+    return !!(k && k.isKeychain)
+  }
+
+  static seed () {
+    const buf = b4a.alloc(32)
+    sodium.randombytes_buf(buf)
+    return buf
+  }
+
+  static keyPair (seed) {
+    const buf = b4a.alloc(96)
+    const publicKey = buf.subarray(0, 32)
+    const secretKey = buf.subarray(32, 96)
+    const scalar = secretKey.subarray(0, 32)
+
+    if (seed) sodium.crypto_sign_seed_keypair(publicKey, secretKey, seed)
+    else sodium.crypto_sign_keypair(publicKey, secretKey)
+
+    sodium.extension_tweak_ed25519_sk_to_scalar(scalar, secretKey)
+
+    return {
+      publicKey,
+      scalar
+    }
   }
 }
 
-test('ZK Schnorr proof generation and verification', function (t) {
-  console.log('\n🌟🌟🌟 Test: ZK Schnorr Proof Generation and Verification 🌟🌟🌟\n')
+module.exports = Keychain
 
-  const keys = new Keychain()
-  const signer = keys.get()
+function add (a, b, out) {
+  sodium.extension_tweak_ed25519_pk_add(out.publicKey, a.publicKey, b.publicKey)
+  if (a.scalar && b.scalar) {
+    sodium.extension_tweak_ed25519_scalar_add(out.scalar, a.scalar, b.scalar)
+  }
+  return out
+}
 
-  // Use the getProofComponents method to retrieve the public key and scalar
-  const { publicKey, scalar } = signer.getProofComponents()
-  console.log('🔑 Public Key:', publicKey.toString('hex'))
-  console.log('🔐 Scalar (Private Key Component):', scalar.toString('hex'))
+function fromKeyPair (keyPair) {
+  if (b4a.isBuffer(keyPair)) return { publicKey: keyPair, scalar: null }
+  return toScalarKeyPair(keyPair)
+}
 
-  // Generate the ZK proof using the Schnorr protocol
-  const zkProof = generateZKSchnorrProof(scalar, publicKey)
+function allocKeyPair (signer) {
+  const buf = b4a.alloc(signer ? 64 : 32)
+  return {
+    publicKey: buf.subarray(0, 32),
+    scalar: signer ? buf.subarray(32, 64) : null
+  }
+}
 
-  t.ok(zkProof, 'ZK Schnorr proof should be generated')
+function toScalarKeyPair (keyPair) {
+  if (!keyPair.secretKey) return keyPair
 
-  // Verify the ZK proof
-  const isValid = verifyZKSchnorrProof(zkProof)
-  t.ok(isValid, 'ZK Schnorr proof should be valid')
+  const scalar = b4a.alloc(32)
+  sodium.extension_tweak_ed25519_sk_to_scalar(scalar, keyPair.secretKey)
+  return { publicKey: keyPair.publicKey, scalar }
+}
 
-  console.log('\n🎉 Test Completed 🎉\n')
-})
+function tweakKeyPair (name, prev) {
+  const keyPair = allocKeyPair(true)
+  const seed = b4a.allocUnsafe(32)
+  sodium.crypto_generichash_batch(seed, [prev, name])
+  sodium.extension_tweak_ed25519_base(keyPair.scalar, keyPair.publicKey, seed)
+  return keyPair
+}
+
+function createSigner (kp) {
+  if (kp.scalar) {
+    return {
+      publicKey: kp.publicKey,
+      scalar: kp.scalar,
+      writable: true,
+      dh (publicKey) {
+        const output = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
+
+        sodium.crypto_scalarmult_ed25519_noclamp(
+          output,
+          kp.scalar,
+          publicKey
+        )
+
+        return output
+      },
+      sign (signable) {
+        const sig = b4a.alloc(sodium.crypto_sign_BYTES)
+        sodium.extension_tweak_ed25519_sign_detached(sig, signable, kp.scalar)
+        return sig
+      },
+      verify,
+      // Expose components for manual ZK proof generation
+      getProofComponents () {
+        return {
+          publicKey: kp.publicKey,
+          scalar: kp.scalar
+        }
+      }
+    }
+  }
+
+  return {
+    publicKey: kp.publicKey,
+    scalar: null,
+    writable: false,
+    dh: null,
+    sign: null,
+    verify
+  }
+
+  function verify (signable, signature) {
+    return sodium.crypto_sign_verify_detached(signature, signable, kp.publicKey)
+  }
+}
+
+function toBuffer (buf) {
+  return typeof buf === 'string' ? b4a.from(buf) : buf
+}
