@@ -1,3 +1,5 @@
+// Ensure no trailing spaces on the following lines
+
 const storage = require('./storage')
 const sodium = require('sodium-native')
 const b4a = require('b4a')
