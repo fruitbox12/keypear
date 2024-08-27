@@ -11,12 +11,12 @@ function generateZKSchnorrProof(scalar, publicKey) {
 
   // Step 1: Generate a random nonce (r)
   const r = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
-  sodium.randombytes_buf(r)
+  sodium.crypto_core_ed25519_scalar_random(r)
   console.log('🎲 Generated Random Nonce (r):', r.toString('hex'))
 
   // Step 2: Compute R = r * G (where G is the base point, in this case, the Ed25519 base point)
-  const R = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-  sodium.crypto_scalarmult_base_noclamp(R, r)
+  const R = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
+  sodium.crypto_scalarmult_ed25519_base(R, r)
   console.log('📍 Computed R (R = r * G):', R.toString('hex'))
 
   // Validate that R is a valid Ed25519 point
@@ -34,9 +34,9 @@ function generateZKSchnorrProof(scalar, publicKey) {
   console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
   // Step 4: Compute s = (r + c * scalar) mod L, where L is the curve order
-  const cs = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
-  sodium.crypto_scalarmult(cs, c, publicKey)
-  const s = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
+  const cs = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
+  sodium.crypto_scalarmult_ed25519(cs, c, publicKey)
+  const s = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
   sodium.crypto_core_ed25519_scalar_add(s, r, cs)
   console.log('🔐 Computed Response (s = r + c * scalar):', s.toString('hex'))
 
@@ -63,12 +63,12 @@ function verifyZKSchnorrProof(proof) {
   console.log('🔄 Recomputed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
   // Step 2: Verify that s * G = R + c * publicKey
-  const sG = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-  sodium.crypto_scalarmult_base_noclamp(sG, s)
+  const sG = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
+  sodium.crypto_scalarmult_ed25519_base(sG, s)
   console.log('s * G:', sG.toString('hex'))
 
-  const cPK = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-  sodium.crypto_scalarmult(cPK, c, publicKey)
+  const cPK = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
+  sodium.crypto_scalarmult_ed25519(cPK, c, publicKey)
   console.log('c * publicKey:', cPK.toString('hex'))
 
   // Revalidate points
@@ -83,7 +83,7 @@ function verifyZKSchnorrProof(proof) {
   }
 
   try {
-    const RPlusCPK = b4a.alloc(sodium.crypto_scalarmult_BYTES)
+    const RPlusCPK = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
     sodium.crypto_core_ed25519_add(RPlusCPK, R, cPK)
     console.log('R + c * publicKey:', RPlusCPK.toString('hex'))
 
