@@ -102,8 +102,8 @@ class Keychain {
     const { publicKey, scalar } = signer.getProofComponents()
 
     // Load the circuit compiled files
-    const wasmFile = './circuit.wasm'
-    const zkeyFile = './circuit_final.zkey'
+    const wasmFile = './keyownership.wasm'
+    const zkeyFile = './keyownership_final.zkey'
 
     const input = {
       privKey: b4a.toString(scalar, 'hex'),
