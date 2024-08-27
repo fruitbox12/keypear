@@ -20,15 +20,15 @@ function generateZKSchnorrProof(scalar, publicKey) {
   console.log('📍 Computed R (R = r * G):', R.toString('hex'))
 
   // Step 3: Compute challenge c = H(R || publicKey)
-  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES) // Allocate correct size
+  const cHash = b4a.alloc(sodium.crypto_generichash_BYTES)
   const hashInput = b4a.concat([R, publicKey])
-  sodium.crypto_generichash(cHash, hashInput) // Hash to fill cHash
+  sodium.crypto_generichash(cHash, hashInput)
   const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
-  sodium.crypto_core_ed25519_scalar_reduce(c, cHash) // Reduce to scalar
+  sodium.crypto_core_ed25519_scalar_reduce(c, cHash)
   console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
   // Step 4: Compute s = (r + c * scalar) mod L, where L is the curve order
-  const cs = b4a.alloc(sodium.crypto_scalarmult_BYTES)
+  const cs = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
   sodium.crypto_scalarmult(cs, c, publicKey)
   const s = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
   sodium.crypto_core_ed25519_scalar_add(s, r, cs)
@@ -49,7 +49,7 @@ function verifyZKSchnorrProof(proof) {
   const { R, s, publicKey } = proof
 
   // Step 1: Recompute the challenge c = H(R || publicKey)
-  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
+  const cHash = b4a.alloc(sodium.crypto_generichash_BYTES)
   const hashInput = b4a.concat([R, publicKey])
   sodium.crypto_generichash(cHash, hashInput)
   const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
@@ -64,6 +64,13 @@ function verifyZKSchnorrProof(proof) {
   sodium.crypto_scalarmult(cPK, c, publicKey)
 
   const RPlusCPK = b4a.alloc(sodium.crypto_scalarmult_BYTES)
+  
+  // We need to validate that the inputs are valid Ed25519 points before adding them.
+  // This step is crucial for ensuring that the addition operation does not fail.
+  if (!sodium.crypto_core_ed25519_is_valid_point(R) || !sodium.crypto_core_ed25519_is_valid_point(cPK)) {
+    throw new Error('Invalid curve points for addition.')
+  }
+
   sodium.crypto_core_ed25519_add(RPlusCPK, R, cPK)
 
   const isValid = b4a.equals(sG, RPlusCPK)
