@@ -3,6 +3,20 @@ const b4a = require('b4a')
 const sodium = require('sodium-native')
 const Keychain = require('../')
 
+// Function to perform scalar addition modulo the curve's order
+function scalarAddModL(a, b) {
+  const result = b4a.alloc(32)
+  sodium.crypto_core_ed25519_scalar_add(result, a, b)
+  return result
+}
+
+// Function to perform scalar multiplication
+function scalarMulModL(scalar, point) {
+  const result = b4a.alloc(32)
+  sodium.crypto_scalarmult_ed25519_noclamp(result, scalar, point)
+  return result
+}
+
 // Function to generate a real ZK proof using the Schnorr protocol
 function generateZKSchnorrProof(scalar, publicKey) {
   console.log('\n===== Starting ZK Schnorr Proof Generation =====\n')
@@ -25,14 +39,11 @@ function generateZKSchnorrProof(scalar, publicKey) {
   sodium.crypto_generichash(c, hashInput)
   console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
-  // Step 4: Compute s = r + c * scalar mod L
-  const s = b4a.alloc(32)
-  const cTimesScalarPoint = b4a.alloc(32)
+  // Step 4: Compute c * scalar manually
+  const cScalar = scalarMulModL(c, scalar)
 
-  // Instead of direct scalar multiplication, we use elliptic curve multiplication
-  sodium.crypto_scalarmult_ed25519_noclamp(cTimesScalarPoint, scalar, publicKey) // c * scalar * G
-  sodium.crypto_core_ed25519_scalar_add(s, r, cTimesScalarPoint) // s = r + c * scalar mod L
-
+  // Step 5: Compute s = r + cScalar mod L
+  const s = scalarAddModL(r, cScalar)
   console.log('🔐 Computed Response (s = r + c * scalar):', s.toString('hex'))
 
   console.timeEnd('Proof Generation Time')
@@ -57,17 +68,10 @@ function verifyZKSchnorrProof(proof) {
 
   // Step 2: Verify that s * G = R + c * publicKey
   const sG = b4a.alloc(32)
-  const cPK = b4a.alloc(32)
-  const RPlusCPK = b4a.alloc(32)
+  const cPK = scalarMulModL(c, publicKey)
+  const RPlusCPK = scalarAddModL(R, cPK)
 
-  // s * G
   sodium.crypto_scalarmult_ed25519_base_noclamp(sG, s)
-
-  // c * publicKey
-  sodium.crypto_scalarmult_ed25519_noclamp(cPK, c, publicKey)
-
-  // R + c * publicKey
-  sodium.crypto_core_ed25519_add(RPlusCPK, R, cPK)
 
   const isValid = b4a.equals(sG, RPlusCPK)
   console.log(isValid ? '✅ Proof is Valid' : '❌ Proof is Invalid')
