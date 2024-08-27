@@ -3,6 +3,7 @@ const sodium = require('sodium-native')
 const b4a = require('b4a')
 const snarkjs = require('snarkjs')
 const fs = require('fs')
+const BN = require('bn.js'); // Using BN.js to ensure proper scalar handling
 
 class Keychain {
   constructor (home = Keychain.keyPair(), base = null, tweak = null) {
@@ -99,6 +100,7 @@ class Keychain {
 
   // Method to generate a zk-SNARK proof
 
+
 async generateSnarkProof(message) {
     const signer = createSigner(this.head);
     let { publicKey, scalar } = signer.getProofComponents();
@@ -106,15 +108,19 @@ async generateSnarkProof(message) {
     console.log('Debug - Scalar length:', scalar.length);
     console.log('Debug - Scalar (Hex):', Buffer.from(scalar).toString('hex'));
 
-    // Convert scalar to BigInt directly
-    const scalarBigInt = BigInt(`0x${Buffer.from(scalar).toString('hex')}`);
-    console.log('Scalar as BigInt:', scalarBigInt);
+    // Convert scalar to BigInt and ensure it is within the curve's field size
+    const scalarBigInt = new BN(Buffer.from(scalar).toString('hex'), 16);
+    const curveOrder = new BN('21888242871839275222246405745257275088548364400416034343698204186575808495617', 10); // BN128 curve order
+    const reducedScalar = scalarBigInt.mod(curveOrder);
+    console.log('Reduced Scalar (Hex):', reducedScalar.toString(16));
 
-    // Ensure publicKey is passed correctly as a hex string
+    // Convert the reduced scalar back to a buffer
+    const reducedScalarBuffer = reducedScalar.toArrayLike(Buffer, 'be', 32);
+
     const input = {
-        privKey: scalarBigInt.toString(), // Scalar as a string
-        pubKey: `0x${Buffer.from(publicKey).toString('hex')}`, // Public key as a hex string
-        messageHash: `0x${Buffer.from(message).toString('hex')}` // Message as hex string
+        privKey: reducedScalarBuffer.toString('hex'), // Scalar as hex string
+        pubKey: Buffer.from(publicKey).toString('hex'), // Public key as hex string
+        messageHash: Buffer.from(message).toString('hex') // Message as hex string
     };
 
     console.log('Input Scalar:', input.privKey);
@@ -131,6 +137,7 @@ async generateSnarkProof(message) {
         throw error;
     }
 }
+
 
 
 
