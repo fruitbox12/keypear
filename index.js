@@ -101,8 +101,8 @@ class Keychain {
     const { publicKey, scalar } = this.getProofComponents();
 
     // Load the circuit compiled files
-    const wasmFile = "./circuit.wasm";
-    const zkeyFile = "./circuit_final.zkey";
+    const wasmFile = './circuit.wasm';
+    const zkeyFile = './circuit_final.zkey';
 
     const input = {
       privKey: b4a.toString(scalar, 'hex'),
@@ -118,7 +118,7 @@ class Keychain {
 
   // Method to verify a zk-SNARK proof
   static async verifySnarkProof(proof, publicSignals) {
-    const vkey = JSON.parse(fs.readFileSync("./verification_key.json"));
+    const vkey = JSON.parse(fs.readFileSync('./verification_key.json'));
 
     const isValid = await snarkjs.groth16.verify(vkey, publicSignals, proof);
     return isValid;
