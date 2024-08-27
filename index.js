@@ -1,5 +1,3 @@
-// Ensure no trailing spaces on the following lines
-
 const storage = require('./storage')
 const sodium = require('sodium-native')
 const b4a = require('b4a')
@@ -90,6 +88,8 @@ class Keychain {
     if (seed) sodium.crypto_sign_seed_keypair(publicKey, secretKey, seed)
     else sodium.crypto_sign_keypair(publicKey, secretKey)
 
+    // Truncate or adjust scalar to ensure it's 32 bytes long
+    scalar.fill(0, 32)  // Ensure the scalar is 32 bytes
     sodium.extension_tweak_ed25519_sk_to_scalar(scalar, secretKey)
 
     return {
@@ -126,7 +126,7 @@ class Keychain {
     const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasmFile, zkeyFile)
   
     return { proof, publicSignals }
-}
+  }
 
   // Method to verify a zk-SNARK proof
   static async verifySnarkProof (proof, publicSignals) {
