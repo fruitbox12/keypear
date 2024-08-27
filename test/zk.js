@@ -10,13 +10,13 @@ function generateZKSchnorrProof(scalar, publicKey) {
   console.time('Proof Generation Time')
 
   // Step 1: Generate a random nonce (r)
-  const r = b4a.alloc(sodium.crypto_scalarmult_SCALARBYTES)
+  const r = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
   sodium.randombytes_buf(r)
   console.log('🎲 Generated Random Nonce (r):', r.toString('hex'))
 
   // Step 2: Compute R = r * G (where G is the base point, in this case, the Ed25519 base point)
   const R = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-  sodium.crypto_scalarmult_base(R, r)
+  sodium.crypto_scalarmult_base_noclamp(R, r)
   console.log('📍 Computed R (R = r * G):', R.toString('hex'))
 
   // Validate that R is a valid Ed25519 point
@@ -26,11 +26,11 @@ function generateZKSchnorrProof(scalar, publicKey) {
   }
 
   // Step 3: Compute challenge c = H(R || publicKey)
-  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES) // Allocate correct size
+  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
   const hashInput = b4a.concat([R, publicKey])
-  sodium.crypto_generichash(cHash, hashInput) // Hash to fill cHash
+  sodium.crypto_generichash(cHash, hashInput)
   const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
-  sodium.crypto_core_ed25519_scalar_reduce(c, cHash) // Reduce to scalar
+  sodium.crypto_core_ed25519_scalar_reduce(c, cHash)
   console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
   // Step 4: Compute s = (r + c * scalar) mod L, where L is the curve order
@@ -64,7 +64,7 @@ function verifyZKSchnorrProof(proof) {
 
   // Step 2: Verify that s * G = R + c * publicKey
   const sG = b4a.alloc(sodium.crypto_scalarmult_BYTES)
-  sodium.crypto_scalarmult_base(sG, s)
+  sodium.crypto_scalarmult_base_noclamp(sG, s)
   console.log('s * G:', sG.toString('hex'))
 
   const cPK = b4a.alloc(sodium.crypto_scalarmult_BYTES)
