@@ -13,7 +13,8 @@
     "b4a": "^1.6.0",
     "sodium-native": "^4.0.3",
     "bn.js": "latest",
-    "snarkjs": "latest"
+    "snarkjs": "latest",
+    "ffjavascript": "latest"
   },
   "devDependencies": {
     "brittle": "^3.1.1",
