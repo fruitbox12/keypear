@@ -102,6 +102,8 @@ class Keychain {
 
 
 
+const curveOrder = new F1Field('21888242871839275222246405745257275088548364400416034343698204186575808495617')
+
 async generateSnarkProof(message) {
     const signer = createSigner(this.head);
     let { publicKey, scalar } = signer.getProofComponents();
@@ -109,17 +111,12 @@ async generateSnarkProof(message) {
     console.log('Debug - Scalar length:', scalar.length);
     console.log('Debug - Scalar (Hex):', Buffer.from(scalar).toString('hex'));
 
-    // Convert scalar to BigInt using Scalar utility
-    const scalarBigInt = Scalar.fromString(Buffer.from(scalar).toString('hex'), 16);
-    console.log('Scalar as BigInt:', scalarBigInt);
-
-    // Reduce scalar to fit within the curve's order
-    const curveOrder = new F1Field('21888242871839275222246405745257275088548364400416034343698204186575808495617');
-    const reducedScalar = curveOrder.e(scalarBigInt);
-    console.log('Reduced Scalar (Hex):', Scalar.toString(reducedScalar, 16));
+    // Convert scalar to a field element
+    const scalarFieldElement = curveOrder.e(Scalar.fromString(Buffer.from(scalar).toString('hex'), 16));
+    console.log('Reduced Scalar (Hex):', Scalar.toString(scalarFieldElement, 16));
 
     const input = {
-        privKey: Scalar.toString(reducedScalar, 16), // Properly formatted scalar
+        privKey: Scalar.toString(scalarFieldElement, 16), // Properly formatted scalar
         pubKey: Buffer.from(publicKey).toString('hex'), // Public key as hex string
         messageHash: Buffer.from(message).toString('hex') // Message as hex string
     };
@@ -138,6 +135,7 @@ async generateSnarkProof(message) {
         throw error;
     }
 }
+
 
 
 
