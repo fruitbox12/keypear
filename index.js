@@ -3,7 +3,6 @@ const sodium = require('sodium-native')
 const b4a = require('b4a')
 const snarkjs = require('snarkjs')
 const fs = require('fs')
-const BN = require('bn.js'); // Using BN.js to handle big numbers
 
 class Keychain {
   constructor (home = Keychain.keyPair(), base = null, tweak = null) {
