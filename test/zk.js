@@ -100,6 +100,7 @@ function verifyZKSchnorrProof(proof) {
     sodium.crypto_core_ed25519_add(RPlusCPK, R, cPK)
     console.log('R + c * publicKey:', RPlusCPK.toString('hex'))
 
+    // Check that s * G matches R + c * publicKey
     const isValid = b4a.equals(sG, RPlusCPK)
     console.log(isValid ? '✅ Proof is Valid' : '❌ Proof is Invalid')
 
