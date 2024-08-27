@@ -100,20 +100,21 @@ class Keychain {
   async generateSnarkProof (message) {
     const signer = createSigner(this.head)
     const { publicKey, scalar } = signer.getProofComponents()
-
+  
+    // Convert to hex and prepend '0x' to ensure proper BigInt conversion
+    const input = {
+      privKey: `0x${b4a.toString(scalar, 'hex')}`,
+      pubKey: `0x${b4a.toString(publicKey, 'hex')}`,
+      messageHash: `0x${b4a.toString(message, 'hex')}`
+    }
+  
     // Load the circuit compiled files
     const wasmFile = './keyownership.wasm'
     const zkeyFile = './keyownership_final.zkey'
-
-    const input = {
-      privKey: b4a.toString(scalar, 'hex'),
-      pubKey: b4a.toString(publicKey, 'hex'),
-      messageHash: b4a.toString(message, 'hex')
-    }
-
+  
     // Generate the proof
     const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasmFile, zkeyFile)
-
+  
     return { proof, publicSignals }
   }
 
