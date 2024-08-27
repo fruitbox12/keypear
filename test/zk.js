@@ -28,7 +28,7 @@ function generateZKSchnorrProof(scalar, publicKey) {
   }
 
   // Step 3: Compute challenge c = H(R || publicKey)
-  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
+  const cHash = b4a.alloc(sodium.crypto_generichash_BYTES)
   const hashInput = b4a.concat([R, publicKey])
   sodium.crypto_generichash(cHash, hashInput)
   const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
@@ -36,10 +36,8 @@ function generateZKSchnorrProof(scalar, publicKey) {
   console.log('🔑 Computed Challenge (c = H(R || publicKey)):', c.toString('hex'))
 
   // Step 4: Compute s = (r + c * scalar) mod L, where L is the curve order
-  const cs = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
-  sodium.crypto_scalarmult_ed25519(cs, c, publicKey)
-  console.log('c * publicKey (cs):', cs.toString('hex'))
-
+  const cs = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
+  sodium.crypto_core_ed25519_scalar_mul(cs, c, scalar)
   const s = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
   sodium.crypto_core_ed25519_scalar_add(s, r, cs)
   console.log('🔐 Computed Response (s = r + c * scalar):', s.toString('hex'))
@@ -64,7 +62,7 @@ function verifyZKSchnorrProof(proof) {
   console.log('publicKey:', publicKey.toString('hex'))
 
   // Step 1: Recompute the challenge c = H(R || publicKey)
-  const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
+  const cHash = b4a.alloc(sodium.crypto_generichash_BYTES)
   const hashInput = b4a.concat([R, publicKey])
   sodium.crypto_generichash(cHash, hashInput)
   const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
