@@ -1,59 +1,32 @@
 const test = require('brittle')
 const b4a = require('b4a')
-const sodium = require('sodium-native')
 const Keychain = require('../')
 
-// Function to simulate a simple ZK proof generation
-function generateZKProof (scalar, message, publicKey) {
-  // Generate a random challenge (nonce)
-  const challenge = b4a.alloc(32)
-  sodium.randombytes_buf(challenge)
+test('ZK-SNARK proof generation and verification', async function (t) {
+  t.plan(4)
 
-  // Commit to the scalar (private key)
-  const commitment = b4a.alloc(32)
-  sodium.crypto_generichash_batch(commitment, [scalar, challenge])
-
-  // Simulate proof by combining commitment, message, and publicKey
-  const proof = b4a.alloc(32)
-  sodium.crypto_generichash_batch(proof, [commitment, message, publicKey])
-
-  return {
-    commitment,
-    challenge,
-    proof
-  }
-}
-
-// Function to verify the ZK proof
-function verifyZKProof (proof, message, publicKey, commitment, challenge) {
-  // Recompute the expected proof
-  const expectedProof = b4a.alloc(32)
-  sodium.crypto_generichash_batch(expectedProof, [commitment, message, publicKey])
-
-  // Verify the proof matches
-  return b4a.equals(proof, expectedProof)
-}
-
-test('ZK proof generation and verification', function (t) {
   const keys = new Keychain()
 
   const signer = keys.get()
 
-  const message = Buffer.from('Test message')
+  const message = b4a.from('Test message')
 
-  // Use the getProofComponents method
+  // Use the getProofComponents method to get the publicKey and scalar
   const { publicKey, scalar } = signer.getProofComponents()
 
-  // Generate a signature
+  // Generate a signature for the message
   const signature = signer.sign(message)
 
-  // Generate ZK proof using the scalar, message, and publicKey
-  const zkProof = generateZKProof(scalar, message, publicKey)
+  t.ok(signature, 'Signature should be generated')
 
-  t.ok(signature, 'signature should be generated')
-  t.ok(zkProof, 'ZK proof should be generated')
+  // Generate ZK-SNARK proof using the Keychain method
+  const zkProof = await keys.generateSnarkProof(message)
 
-  // Verify the ZK proof
-  const isValid = verifyZKProof(zkProof.proof, message, publicKey, zkProof.commitment, zkProof.challenge)
-  t.ok(isValid, 'ZK proof should be valid')
+  t.ok(zkProof.proof, 'ZK-SNARK proof should be generated')
+  t.ok(zkProof.publicSignals, 'Public signals should be generated')
+
+  // Verify the ZK-SNARK proof using the Keychain method
+  const isValid = await Keychain.verifySnarkProof(zkProof.proof, zkProof.publicSignals)
+
+  t.ok(isValid, 'ZK-SNARK proof should be valid')
 })
