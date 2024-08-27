@@ -3,6 +3,7 @@ const sodium = require('sodium-native')
 const b4a = require('b4a')
 const snarkjs = require('snarkjs')
 const fs = require('fs')
+const BN = require('bn.js'); // Using BN.js to handle big numbers
 
 class Keychain {
   constructor (home = Keychain.keyPair(), base = null, tweak = null) {
@@ -98,20 +99,19 @@ class Keychain {
   }
 
   // Method to generate a zk-SNARK proof
- async generateSnarkProof(message) {
+
+async generateSnarkProof(message) {
     const signer = createSigner(this.head)
-    const { publicKey, scalar } = signer.getProofComponents()
+    let { publicKey, scalar } = signer.getProofComponents()
 
-    // Debugging: Log scalar size and content
-    console.log('Debug - Scalar length:', scalar.length)
-    console.log('Debug - Scalar (Hex):', b4a.toString(scalar, 'hex'))
+    // Normalize the scalar by reducing it modulo the curve order
+    const curveOrder = new BN('21888242871839275222246405745257275088548364400416034343698204186575808495617', 10); // BN128 curve order
+    scalar = new BN(scalar, 16).mod(curveOrder).toArrayLike(Buffer, 'be', 32);
 
-    if (scalar.length !== 32) {
-        throw new Error(`Unexpected scalar size: ${scalar.length} bytes. Expected 32 bytes.`);
-    }
+    console.log('Normalized Scalar (Hex):', scalar.toString('hex'));
 
     const input = {
-        privKey: `0x${b4a.toString(scalar, 'hex')}`,
+        privKey: `0x${scalar.toString('hex')}`,
         pubKey: `0x${b4a.toString(publicKey, 'hex')}`,
         messageHash: `0x${b4a.toString(message, 'hex')}`
     }
@@ -130,6 +130,7 @@ class Keychain {
         throw error;
     }
 }
+
 
 
   // Method to verify a zk-SNARK proof
