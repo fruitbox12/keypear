@@ -21,8 +21,10 @@ function generateZKSchnorrProof(scalar, publicKey) {
 
   // Validate that R is a valid Ed25519 point
   if (!sodium.crypto_core_ed25519_is_valid_point(R)) {
-    console.error('Generated R is not a valid Ed25519 point:', R.toString('hex'))
+    console.error('❌ Generated R is not a valid Ed25519 point:', R.toString('hex'))
     throw new Error('Invalid point R')
+  } else {
+    console.log('✅ R is a valid Ed25519 point.')
   }
 
   // Step 3: Compute challenge c = H(R || publicKey)
@@ -36,6 +38,8 @@ function generateZKSchnorrProof(scalar, publicKey) {
   // Step 4: Compute s = (r + c * scalar) mod L, where L is the curve order
   const cs = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
   sodium.crypto_scalarmult_ed25519(cs, c, publicKey)
+  console.log('c * publicKey (cs):', cs.toString('hex'))
+
   const s = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
   sodium.crypto_core_ed25519_scalar_add(s, r, cs)
   console.log('🔐 Computed Response (s = r + c * scalar):', s.toString('hex'))
@@ -54,13 +58,18 @@ function verifyZKSchnorrProof(proof) {
 
   const { R, s, publicKey } = proof
 
+  console.log('🔍 Verifying proof with values:')
+  console.log('R:', R.toString('hex'))
+  console.log('s:', s.toString('hex'))
+  console.log('publicKey:', publicKey.toString('hex'))
+
   // Step 1: Recompute the challenge c = H(R || publicKey)
   const cHash = b4a.alloc(sodium.crypto_core_ed25519_NONREDUCEDSCALARBYTES)
   const hashInput = b4a.concat([R, publicKey])
   sodium.crypto_generichash(cHash, hashInput)
   const c = b4a.alloc(sodium.crypto_core_ed25519_SCALARBYTES)
   sodium.crypto_core_ed25519_scalar_reduce(c, cHash)
-  console.log('🔄 Recomputed Challenge (c = H(R || publicKey)):', c.toString('hex'))
+  console.log('🔄 Recomputed Challenge (c = H(R || publicKey)): ', c.toString('hex'))
 
   // Step 2: Verify that s * G = R + c * publicKey
   const sG = b4a.alloc(sodium.crypto_scalarmult_ed25519_BYTES)
@@ -73,13 +82,17 @@ function verifyZKSchnorrProof(proof) {
 
   // Revalidate points
   if (!sodium.crypto_core_ed25519_is_valid_point(R)) {
-    console.error('R is not a valid Ed25519 point:', R.toString('hex'))
+    console.error('❌ R is not a valid Ed25519 point:', R.toString('hex'))
     throw new Error('Invalid point R')
+  } else {
+    console.log('✅ R is a valid Ed25519 point.')
   }
 
   if (!sodium.crypto_core_ed25519_is_valid_point(cPK)) {
-    console.error('c * publicKey is not a valid Ed25519 point:', cPK.toString('hex'))
+    console.error('❌ c * publicKey is not a valid Ed25519 point:', cPK.toString('hex'))
     throw new Error('Invalid point c * publicKey')
+  } else {
+    console.log('✅ c * publicKey is a valid Ed25519 point.')
   }
 
   try {
