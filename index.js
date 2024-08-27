@@ -102,23 +102,23 @@ class Keychain {
 
 
 
-const curveOrder = new F1Field('21888242871839275222246405745257275088548364400416034343698204186575808495617')
-
 async generateSnarkProof(message) {
+    const curveOrder = new F1Field('21888242871839275222246405745257275088548364400416034343698204186575808495617'); // Define inside the function
+
     const signer = createSigner(this.head);
     let { publicKey, scalar } = signer.getProofComponents();
 
     console.log('Debug - Scalar length:', scalar.length);
     console.log('Debug - Scalar (Hex):', Buffer.from(scalar).toString('hex'));
 
-    // Convert scalar to a field element
+    // Convert the scalar to a field element using the curve order
     const scalarFieldElement = curveOrder.e(Scalar.fromString(Buffer.from(scalar).toString('hex'), 16));
     console.log('Reduced Scalar (Hex):', Scalar.toString(scalarFieldElement, 16));
 
     const input = {
-        privKey: Scalar.toString(scalarFieldElement, 16), // Properly formatted scalar
-        pubKey: Buffer.from(publicKey).toString('hex'), // Public key as hex string
-        messageHash: Buffer.from(message).toString('hex') // Message as hex string
+        privKey: Scalar.toString(scalarFieldElement, 16),
+        pubKey: Buffer.from(publicKey).toString('hex'),
+        messageHash: Buffer.from(message).toString('hex')
     };
 
     console.log('Input Scalar:', input.privKey);
