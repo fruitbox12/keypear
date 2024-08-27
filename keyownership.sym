@@ -1,0 +1,6 @@
+1,3,0,main.privKey
+2,4,0,main.pubKey
+3,5,0,main.messageHash
+4,1,0,main.expectedPubKey
+5,2,0,main.isEqual
+6,6,0,main.privKeySquare
