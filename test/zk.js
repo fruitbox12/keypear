@@ -11,9 +11,6 @@ test('ZK-SNARK proof generation and verification', async function (t) {
 
   const message = b4a.from('Test message')
 
-  // Use the getProofComponents method to get the publicKey and scalar
-  const { publicKey, scalar } = signer.getProofComponents()
-
   // Generate a signature for the message
   const signature = signer.sign(message)
 
